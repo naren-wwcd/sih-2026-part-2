@@ -34,7 +34,7 @@ export const tace = {
     http.post<CollectResponse>(collectorPathMap[collector]),
 
   /** All clusters known to the correlation engine. */
-  getClusters: () => http.get<ClusterSummary[]>('/clusters'),
+  getClusters: () => http.get<{ clusters: ClusterSummary[]; total: number }>('/clusters').then((res) => res.clusters),
 
   /** Full detail (evidence, entities, timeline) for a single cluster. */
   getClusterDetail: (clusterId: string) =>
@@ -45,7 +45,22 @@ export const tace = {
     http.get<GraphResponse>(`/graph/${encodeURIComponent(clusterId)}`),
 
   /** Backend + dependent-service health. */
-  getHealth: () => http.get<HealthResponse>('/health'),
+  getHealth: () =>
+  http.get<{
+    status: string
+    service: string
+    environment: string
+    postgres: boolean
+    neo4j: boolean
+    redis: boolean
+  }>('/health').then((res) => ({
+    status: res.status,
+    services: [
+      { name: 'PostgreSQL', status: res.postgres ? 'ok' : 'down' },
+      { name: 'Neo4j', status: res.neo4j ? 'ok' : 'down' },
+      { name: 'Redis', status: res.redis ? 'ok' : 'down' },
+    ],
+  })),
 
   /**
    * Background collection jobs. NOTE: the spec doesn't list a dedicated

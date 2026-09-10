@@ -49,6 +49,7 @@ export function useJobs() {
     queryKey: queryKeys.jobs,
     queryFn: tace.getJobs,
     refetchInterval: 5_000,
+    enabled: false, // backend has no /jobs endpoint yet — revisit once it's built
   })
 }
 
