@@ -6,19 +6,27 @@ import path from 'node:path'
 // frontend can be developed against http://localhost:8000 without CORS pain.
 // Override the target via the VITE_API_PROXY_TARGET env var if your backend
 // runs elsewhere.
+
 export default defineConfig({
   plugins: [react()],
+
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
+
   server: {
     port: 5173,
+
     proxy: {
       '/api': {
-        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000',
+        target:
+          process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000',
+
         changeOrigin: true,
+
+        // /api/graph/12 -> /graph/12
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
+
 import {
   Boxes,
   ShieldCheck,
@@ -9,194 +10,396 @@ import {
   Play,
   ListChecks,
 } from 'lucide-react'
+
+import {
+  useDashboardStats,
+  useHealth,
+  useJobs,
+  useStartCollection,
+} from '@/hooks/useTaceQueries'
+
 import { StatCard } from '@/components/StatCard'
 import { HealthBadge } from '@/components/HealthBadge'
-import { SkeletonStatGrid, SkeletonCard, SkeletonList } from '@/components/LoadingSkeleton'
+
+import {
+  SkeletonStatGrid,
+  SkeletonCard,
+  SkeletonList,
+} from '@/components/LoadingSkeleton'
+
 import { ErrorBanner } from '@/components/ErrorBanner'
 import { JobTable } from '@/components/JobTable'
 import { EmptyState } from '@/components/EmptyState'
-import { useClusters, useHealth, useJobs, useStartCollection } from '@/hooks/useTaceQueries'
-import { useToast } from '@/hooks/useToast'
-import type { ApiError, CollectorType } from '@/types'
 
-const quickActions: { collector: CollectorType; label: string; icon: typeof Play }[] = [
-  { collector: 'all', label: 'Run All Collectors', icon: Play },
-  { collector: 'tor', label: 'Collect Tor', icon: Radio },
-  { collector: 'github', label: 'Collect GitHub', icon: Github },
-  { collector: 'reddit', label: 'Collect Reddit', icon: MessageSquare },
-  { collector: 'blockchain', label: 'Collect Blockchain', icon: Wallet },
-]
+import { useToast } from '@/hooks/useToast'
+
+import type { CollectorType } from '@/types'
 
 export default function Dashboard() {
-  const clustersQuery = useClusters()
+  // -------------------------------------------------------------------------
+  // Queries
+  // -------------------------------------------------------------------------
+
+  const statsQuery = useDashboardStats()
   const healthQuery = useHealth()
   const jobsQuery = useJobs()
-  const startCollection = useStartCollection()
+
+  const startCollection =
+    useStartCollection()
+
+  // -------------------------------------------------------------------------
+  // Toast
+  // -------------------------------------------------------------------------
+
   const { push } = useToast()
 
-  // Track which specific collector button is mid-flight so only that
-  // button shows a loading state (not every quick action at once).
-  const [pendingCollector, setPendingCollector] = useState<CollectorType | null>(null)
+  // -------------------------------------------------------------------------
+  // State
+  // -------------------------------------------------------------------------
 
-  const stats = useMemo(() => {
-    const clusters = clustersQuery.data ?? []
-    return {
-      total_clusters: clusters.length,
-      high_confidence_clusters: clusters.filter((c) => c.confidence_level === 'high').length,
-      wallets_collected: clusters.reduce((sum, c) => sum + (c.wallet_count ?? 0), 0),
-      tor_relays_indexed: clusters.reduce((sum, c) => sum + (c.relay_count ?? 0), 0),
-      github_profiles: clusters.reduce((sum, c) => sum + (c.alias_count ?? 0), 0),
-      reddit_posts: clusters.reduce((sum, c) => sum + (c.pgp_count ?? 0), 0),
-    }
-  }, [clustersQuery.data])
+  const [
+    pendingCollector,
+    setPendingCollector,
+  ] = useState<CollectorType | null>(null)
 
-  async function handleCollect(collector: CollectorType, label: string) {
-    setPendingCollector(collector)
+  const stats = statsQuery.data
+
+  // -------------------------------------------------------------------------
+  // Start collection
+  // -------------------------------------------------------------------------
+
+  const handleStartCollection = async (
+    collector: CollectorType,
+  ) => {
     try {
-      await startCollection.mutateAsync(collector)
+      setPendingCollector(collector)
+
+      await startCollection.mutateAsync(
+        collector,
+      )
+
       push({
         variant: 'success',
-        title: `${label} started`,
-        description: 'Job queued — track progress in Collection Monitor.',
+        title: 'Collection started',
+        description:
+          `${collector} collection job has been queued.`,
       })
-    } catch (err) {
-      const apiError = err as ApiError
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Unable to start the collection job.'
+
       push({
         variant: 'danger',
-        title: `${label} failed to start`,
-        description: apiError?.message ?? 'Something went wrong.',
+        title: 'Collection failed',
+        description: message,
       })
     } finally {
       setPendingCollector(null)
     }
   }
 
-  const recentJobs = (jobsQuery.data ?? []).slice(0, 5)
+  // -------------------------------------------------------------------------
+  // Collectors
+  // -------------------------------------------------------------------------
+
+  const collectors: Array<
+    [CollectorType, string]
+  > = [
+    ['all', 'Collect All'],
+    ['github', 'GitHub'],
+    ['reddit', 'Reddit'],
+    ['tor', 'Tor'],
+    ['blockchain', 'Blockchain'],
+  ]
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold">Dashboard</h1>
-        <p className="text-sm text-text-secondary mt-0.5">
-          Correlation engine overview, system health, and collection controls.
-        </p>
+
+      {/* ================================================================= */}
+      {/* HEADER                                                            */}
+      {/* ================================================================= */}
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Dashboard
+          </h1>
+
+          <p className="text-sm text-muted-foreground">
+            Threat Actor Correlation Engine overview
+          </p>
+        </div>
+
+        {healthQuery.data && (
+          <HealthBadge
+            status={
+              healthQuery.data.status
+            }
+          />
+        )}
+
       </div>
 
-      {/* Stat cards */}
-      {clustersQuery.isLoading ? (
-        <SkeletonStatGrid count={6} />
-      ) : clustersQuery.isError ? (
-        <ErrorBanner error={clustersQuery.error} onRetry={() => clustersQuery.refetch()} title="Failed to load cluster stats" />
+      {/* ================================================================= */}
+      {/* DASHBOARD STATISTICS                                              */}
+      {/* ================================================================= */}
+
+      {statsQuery.isLoading ? (
+
+        <SkeletonStatGrid />
+
+      ) : statsQuery.isError ? (
+
+        <ErrorBanner
+          title="Unable to load dashboard statistics"
+          error={statsQuery.error}
+        />
+
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-          <StatCard label="Total Clusters" value={stats.total_clusters} icon={Boxes} tone="default" />
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+
+          <StatCard
+            label="Total Clusters"
+            value={
+              stats?.total_clusters ?? 0
+            }
+            icon={Boxes}
+          />
+
           <StatCard
             label="High Confidence"
-            value={stats.high_confidence_clusters}
+            value={
+              stats?.high_confidence_clusters ?? 0
+            }
             icon={ShieldCheck}
-            tone="success"
           />
-          <StatCard label="Wallets Collected" value={stats.wallets_collected} icon={Wallet} tone="warning" />
-          <StatCard label="Tor Relays Indexed" value={stats.tor_relays_indexed} icon={Radio} tone="default" />
-          <StatCard label="GitHub Profiles" value={stats.github_profiles} icon={Github} tone="default" />
-          <StatCard label="Reddit Posts" value={stats.reddit_posts} icon={MessageSquare} tone="default" />
+
+          <StatCard
+            label="Wallets"
+            value={
+              stats?.wallets_collected ?? 0
+            }
+            icon={Wallet}
+          />
+
+          <StatCard
+            label="Tor Relays"
+            value={
+              stats?.tor_relays_indexed ?? 0
+            }
+            icon={Radio}
+          />
+
+          <StatCard
+            label="GitHub Profiles"
+            value={
+              stats?.github_profiles ?? 0
+            }
+            icon={Github}
+          />
+
+          <StatCard
+            label="Reddit Posts"
+            value={
+              stats?.reddit_posts ?? 0
+            }
+            icon={MessageSquare}
+          />
+
         </div>
+
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* System health */}
-        <div className="card lg:col-span-1">
-          <div className="card-header">
-            <h2 className="text-sm font-medium">System Health</h2>
-            {!healthQuery.isLoading && !healthQuery.isError && healthQuery.data && (
-              <HealthBadge status={healthQuery.data.status} />
-            )}
-          </div>
-          <div className="p-4 space-y-2.5">
-            {healthQuery.isLoading ? (
-              <div className="space-y-2.5">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <SkeletonCard key={i} />
-                ))}
-              </div>
-            ) : healthQuery.isError ? (
-              <ErrorBanner error={healthQuery.error} onRetry={() => healthQuery.refetch()} title="Health check failed" />
-            ) : healthQuery.data && healthQuery.data.services.length > 0 ? (
-              healthQuery.data.services.map((svc) => (
-                <div
-                  key={svc.name}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{svc.name}</p>
-                    {svc.detail && (
-                      <p className="text-xs text-text-muted mt-0.5 truncate">{svc.detail}</p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {typeof svc.latency_ms === 'number' && (
-                      <span className="text-xs text-text-muted mono-num">{svc.latency_ms}ms</span>
-                    )}
-                    <HealthBadge status={svc.status} />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <EmptyState icon={ShieldCheck} title="No service health data" />
-            )}
-          </div>
+      {/* ================================================================= */}
+      {/* QUICK ACTIONS                                                     */}
+      {/* ================================================================= */}
+
+      <section className="space-y-3">
+
+        <div>
+          <h2 className="text-lg font-semibold">
+            Quick Actions
+          </h2>
+
+          <p className="text-sm text-muted-foreground">
+            Start OSINT collection jobs directly from the dashboard.
+          </p>
         </div>
 
-        {/* Quick actions */}
-        <div className="card lg:col-span-1">
-          <div className="card-header">
-            <h2 className="text-sm font-medium">Quick Actions</h2>
-          </div>
-          <div className="p-4 space-y-2">
-            {quickActions.map(({ collector, label, icon: Icon }) => {
-              const isPending = pendingCollector === collector && startCollection.isPending
-              return (
-                <button
-                  key={collector}
-                  onClick={() => handleCollect(collector, label)}
-                  disabled={startCollection.isPending}
-                  className="w-full flex items-center gap-2.5 text-sm font-medium rounded-md border border-border px-3 py-2.5 hover:border-accent/50 hover:bg-white/[0.02] disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-ring"
-                >
-                  <Icon
-                    size={16}
-                    className={isPending ? 'animate-spin text-accent' : 'text-text-secondary'}
-                  />
-                  <span className="flex-1 text-left">{label}</span>
-                  {isPending && <span className="text-xs text-text-muted">Starting…</span>}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 
-        {/* Recent jobs */}
-        <div className="lg:col-span-1 space-y-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium">Recent Jobs</h2>
-            <a href="/jobs" className="text-xs text-accent hover:text-accent-hover">
-              View all
-            </a>
-          </div>
-          {jobsQuery.isLoading ? (
-            <SkeletonList rows={4} />
-          ) : jobsQuery.isError ? (
-            <ErrorBanner error={jobsQuery.error} onRetry={() => jobsQuery.refetch()} title="Failed to load jobs" />
-          ) : recentJobs.length === 0 ? (
-            <EmptyState
-              icon={ListChecks}
-              title="No collection jobs yet"
-              description="Use Quick Actions to trigger a collector."
-            />
-          ) : (
-            <JobTable jobs={recentJobs} compact />
+          {collectors.map(
+            ([collector, label]) => (
+              <button
+                key={collector}
+                type="button"
+                onClick={() =>
+                  handleStartCollection(
+                    collector,
+                  )
+                }
+                disabled={
+                  startCollection.isPending ||
+                  pendingCollector !== null
+                }
+                className="flex items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+
+                <Play className="h-4 w-4" />
+
+                {pendingCollector ===
+                collector
+                  ? 'Starting...'
+                  : label}
+
+              </button>
+            ),
           )}
+
         </div>
-      </div>
+
+      </section>
+
+      {/* ================================================================= */}
+      {/* SERVICE HEALTH                                                    */}
+      {/* ================================================================= */}
+
+      <section className="space-y-3">
+
+        <div>
+          <h2 className="text-lg font-semibold">
+            Service Health
+          </h2>
+
+          <p className="text-sm text-muted-foreground">
+            Current status of TACE dependencies.
+          </p>
+        </div>
+
+        {healthQuery.isLoading ? (
+
+          <SkeletonCard />
+
+        ) : healthQuery.isError ? (
+
+          <ErrorBanner
+            title="Unable to load service health"
+            error={healthQuery.error}
+          />
+
+        ) : healthQuery.data &&
+          healthQuery.data.services.length > 0 ? (
+
+          <div className="grid gap-3 md:grid-cols-3">
+
+            {healthQuery.data.services.map(
+              (service) => (
+
+                <div
+                  key={service.name}
+                  className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
+                >
+
+                  <div className="min-w-0">
+
+                    <p className="truncate text-sm font-medium">
+                      {service.name}
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                      Backend dependency
+                    </p>
+
+                  </div>
+
+                  <HealthBadge
+                    status={service.status}
+                  />
+
+                </div>
+
+              ),
+            )}
+
+          </div>
+
+        ) : (
+
+          <EmptyState
+            icon={ShieldCheck}
+            title="No service health data"
+          />
+
+        )}
+
+      </section>
+
+      {/* ================================================================= */}
+      {/* RECENT JOBS                                                       */}
+      {/* ================================================================= */}
+
+      <section className="space-y-3">
+
+        <div className="flex items-center gap-2">
+
+          <ListChecks className="h-5 w-5" />
+
+          <div>
+
+            <h2 className="text-lg font-semibold">
+              Recent Jobs
+            </h2>
+
+            <p className="text-sm text-muted-foreground">
+              Background collection activity.
+            </p>
+
+          </div>
+
+        </div>
+
+        {jobsQuery.isLoading ? (
+
+          <SkeletonList />
+
+        ) : jobsQuery.isError ? (
+
+          <ErrorBanner
+            title="Unable to load jobs"
+            error={jobsQuery.error}
+          />
+
+        ) : (jobsQuery.data ?? []).length > 0 ? (
+
+          <JobTable
+            jobs={
+              (jobsQuery.data ?? []).slice(
+                0,
+                5,
+              )
+            }
+          />
+
+        ) : (
+
+          <EmptyState
+            icon={ListChecks}
+            title="No recent jobs"
+            description="Collection jobs will appear here when the jobs API is available."
+          />
+
+        )}
+
+      </section>
+
     </div>
   )
 }

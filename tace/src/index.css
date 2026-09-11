@@ -6,28 +6,35 @@
   * {
     @apply border-border;
   }
+
   html {
     color-scheme: dark;
   }
+
   body {
     @apply bg-background text-text-primary antialiased;
     font-feature-settings: 'tnum' 1, 'ss01' 1;
   }
+
   ::selection {
     @apply bg-accent-muted text-white;
   }
-  /* thin, understated scrollbars fit a SOC console better than default chrome */
+
+  /* Thin, understated scrollbars fit a SOC console better than default chrome */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+
   ::-webkit-scrollbar-thumb {
     background-color: #1F2937;
     border-radius: 4px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background-color: #374151;
   }
@@ -37,15 +44,19 @@
   .card {
     @apply bg-surface border border-border rounded-lg shadow-card;
   }
+
   .card-header {
     @apply flex items-center justify-between px-4 py-3 border-b border-border;
   }
+
   .badge {
     @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium;
   }
+
   .mono-num {
     @apply font-mono tabular-nums;
   }
+
   .focus-ring {
     @apply outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }

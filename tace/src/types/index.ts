@@ -1,18 +1,28 @@
 // ---------------------------------------------------------------------------
-// Core domain types for TACE. These mirror the shapes returned by the
-// existing FastAPI backend. Adjust field names here if your backend's
-// serializers differ — this file is the single source of truth for typing
-// the rest of the frontend, so most backend-shape changes should only
-// require edits in this file plus services/api.ts.
+// Core domain types for TACE
 // ---------------------------------------------------------------------------
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low'
 
-export type CollectorType = 'tor' | 'github' | 'reddit' | 'blockchain' | 'all'
+export type CollectorType =
+  | 'tor'
+  | 'github'
+  | 'reddit'
+  | 'blockchain'
+  | 'all'
 
-export type JobStatus = 'queued' | 'running' | 'success' | 'failed'
+export type JobStatus =
+  | 'queued'
+  | 'running'
+  | 'success'
+  | 'failed'
 
-export type EntityType = 'alias' | 'wallet' | 'relay' | 'pgp' | 'platform'
+export type EntityType =
+  | 'alias'
+  | 'wallet'
+  | 'relay'
+  | 'pgp'
+  | 'platform'
 
 export type RelationshipType =
   | 'USES_WALLET'
@@ -23,7 +33,13 @@ export type RelationshipType =
 // --- Evidence & Clusters ----------------------------------------------------
 
 export interface EvidenceItem {
-  type: 'shared_wallet' | 'shared_pgp' | 'posting_pattern' | 'stylometry' | string
+  type:
+    | 'shared_wallet'
+    | 'shared_pgp'
+    | 'posting_pattern'
+    | 'stylometry'
+    | string
+
   label: string
   weight: number
   detail?: string
@@ -32,13 +48,13 @@ export interface EvidenceItem {
 export interface ClusterSummary {
   id: string
   label: string
-  confidence_score: number // 0-100
+  confidence_score: number
   confidence_level: ConfidenceLevel
   alias_count: number
   wallet_count: number
   pgp_count: number
   relay_count: number
-  last_updated: string // ISO timestamp
+  last_updated: string
 }
 
 export interface AliasRecord {
@@ -74,10 +90,15 @@ export interface RelayRecord {
 
 export interface TimelineEvent {
   id: string
-  timestamp: string // ISO timestamp
+  timestamp: string
   label: string
   description?: string
-  kind: 'discovery' | 'link' | 'confidence_change' | 'collection' | string
+  kind:
+    | 'discovery'
+    | 'link'
+    | 'confidence_change'
+    | 'collection'
+    | string
 }
 
 export interface ClusterDetail extends ClusterSummary {
@@ -111,7 +132,7 @@ export interface GraphResponse {
   edges: GraphEdgeData[]
 }
 
-// --- Collection jobs -----------------------------------------------------------
+// --- Collection jobs ----------------------------------------------------------
 
 export interface CollectionJob {
   id: string
@@ -123,22 +144,29 @@ export interface CollectionJob {
   error?: string
 }
 
-// --- Health --------------------------------------------------------------------
+// --- Health -------------------------------------------------------------------
+
+export type HealthStatus =
+  | 'ok'
+  | 'up'
+  | 'degraded'
+  | 'down'
+  | 'unknown'
 
 export interface ServiceHealth {
   name: string
-  status: 'up' | 'degraded' | 'down'
+  status: HealthStatus
   latency_ms?: number
   detail?: string
 }
 
 export interface HealthResponse {
-  status: 'ok' | 'degraded' | 'down'
+  status: HealthStatus
   services: ServiceHealth[]
-  timestamp: string
+  timestamp?: string
 }
 
-// --- Dashboard aggregate stats (derived client-side from /clusters etc.) -------
+// --- Dashboard ----------------------------------------------------------------
 
 export interface DashboardStats {
   total_clusters: number
@@ -149,16 +177,20 @@ export interface DashboardStats {
   reddit_posts: number
 }
 
-// --- Search --------------------------------------------------------------------
+// --- Search -------------------------------------------------------------------
 
-export type SearchField = 'alias' | 'wallet' | 'pgp' | 'relay'
+export type SearchField =
+  | 'alias'
+  | 'wallet'
+  | 'pgp'
+  | 'relay'
 
 export interface SearchQuery {
   field: SearchField
   value: string
 }
 
-// --- API envelope / errors ------------------------------------------------------
+// --- API errors ---------------------------------------------------------------
 
 export interface ApiError {
   status: number
